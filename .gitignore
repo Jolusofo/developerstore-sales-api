@@ -1,0 +1,31 @@
+# ===== .NET / Visual Studio =====
+## Ignore arquivos binários e temporários
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.cache
+*.log
+*.user
+*.vs/
+.vscode/
+
+# Backup / arquivos temporários
+*.swp
+*~
+*.tmp
+
+# Arquivos de publicação
+publish/
+out/
+dist/
+**/wwwroot/lib/
+
+# ===== Sistema Operacional =====
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
