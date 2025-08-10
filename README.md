@@ -51,7 +51,7 @@ DeveloperStore
 
 ## 📦 Como Executar
 
-### 1️⃣ Clonar o repositório
+### Clonar o repositório
 ```bash
 git clone https://github.com/Jolusofo/developerstore-sales-api.git
 
