@@ -1,99 +1,43 @@
 using DeveloperStore.Api.Controllers;
 using DeveloperStore.Api.DTOs;
-using DeveloperStore.Domain.Entities;
-using DeveloperStore.Infrastructure.Data;
-using FluentAssertions;
+using DeveloperStore.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using Moq;
 using Xunit;
-using System.Collections.Generic;
+using FluentAssertions;
 
 namespace DeveloperStore.Tests.Controllers
 {
     public class AuthControllerTests
     {
-        private AppDbContext GetDbContext()
+        [Fact]
+        public async Task Login_ShouldReturnOk_WhenValidCredentials()
         {
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-                .Options;
+            var mockService = new Mock<IAuthService>();
+            mockService.Setup(s => s.AuthenticateAsync(It.IsAny<LoginDto>()))
+                       .ReturnsAsync(new TokenResponseDto { Token = "fake-token" });
 
-            var context = new AppDbContext(options);
-            context.Users.Add(new User
-            {
-                Id = 1,
-                Username = "admin",
-                Password = "123456",
-                Role = "Admin"
-            });
-            context.SaveChanges();
+            var controller = new AuthController(mockService.Object);
 
-            return context;
-        }
+            var result = await controller.Login(new LoginDto { Username = "user", Password = "pass" });
 
-        private IConfiguration GetFakeConfiguration()
-        {
-            var inMemorySettings = new Dictionary<string, string>
-            {
-                {"Jwt:Key", "super_secret_key_1234567890123456"},
-                {"Jwt:Issuer", "TestIssuer"},
-                {"Jwt:Audience", "TestAudience"},
-                {"Jwt:ExpiresInMinutes", "60"}
-            };
-            return new ConfigurationBuilder()
-                .AddInMemoryCollection(inMemorySettings)
-                .Build();
+            var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+            var dto = ok.Value.Should().BeOfType<TokenResponseDto>().Subject;
+            dto.Token.Should().Be("fake-token");
         }
 
         [Fact]
-        public async Task Login_ShouldReturnToken_WhenCredentialsAreValid()
+        public async Task Login_ShouldReturnUnauthorized_WhenInvalidCredentials()
         {
-            // Arrange
-            var context = GetDbContext();
-            var config = GetFakeConfiguration();
-            var controller = new AuthController(context, config);
+            var mockService = new Mock<IAuthService>();
+            mockService.Setup(s => s.AuthenticateAsync(It.IsAny<LoginDto>()))
+                       .ReturnsAsync((TokenResponseDto?)null);
 
-            var loginDto = new LoginDto
-            {
-                Username = "admin",
-                Password = "123456"
-            };
+            var controller = new AuthController(mockService.Object);
 
-            // Act
-            var result = await controller.Login(loginDto);
+            var result = await controller.Login(new LoginDto { Username = "user", Password = "wrong" });
 
-            // Assert
-            var okResult = result as OkObjectResult;
-            okResult.Should().NotBeNull();
-            var tokenResponse = okResult!.Value as TokenResponseDto;
-            tokenResponse.Should().NotBeNull();
-            tokenResponse!.Token.Should().NotBeNullOrWhiteSpace();
-        }
-
-        [Fact]
-        public async Task Login_ShouldReturnUnauthorized_WhenCredentialsAreInvalid()
-        {
-            // Arrange
-            var context = GetDbContext();
-            var config = GetFakeConfiguration();
-            var controller = new AuthController(context, config);
-
-            var loginDto = new LoginDto
-            {
-                Username = "admin",
-                Password = "wrongpassword"
-            };
-
-            // Act
-            var result = await controller.Login(loginDto);
-
-            // Assert
-            var unauthorizedResult = result as UnauthorizedObjectResult;
-            unauthorizedResult.Should().NotBeNull();
-            var messageObj = unauthorizedResult!.Value;
-            var messageStr = messageObj?.ToString();
-            Assert.Contains("Usuário ou senha inválidos", messageStr);
+            result.Should().BeOfType<UnauthorizedObjectResult>();
         }
     }
 }

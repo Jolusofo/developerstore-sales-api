@@ -1,49 +1,39 @@
 using DeveloperStore.Api.Controllers;
-using DeveloperStore.Domain.Entities;
-using DeveloperStore.Infrastructure.Data;
-using FluentAssertions;
+using DeveloperStore.Api.DTOs;
+using DeveloperStore.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
+using FluentAssertions;
 
 namespace DeveloperStore.Tests.Controllers
 {
     public class SalesControllerTests
     {
-        private AppDbContext GetDbContext()
+        [Fact]
+        public async Task GetById_ShouldReturnOk_WhenSaleExists()
         {
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options;
-            return new AppDbContext(options);
+            var mockService = new Mock<ISaleService>();
+            mockService.Setup(s => s.GetByIdAsync(1)).ReturnsAsync(new SaleDto { Id = 1 });
+
+            var controller = new SalesController(mockService.Object);
+
+            var result = await controller.GetById(1);
+
+            result.Should().BeOfType<OkObjectResult>();
         }
 
         [Fact]
-        public async Task Create_ShouldApplyDiscountRule()
+        public async Task GetById_ShouldReturnNotFound_WhenSaleDoesNotExist()
         {
-            var ctx = GetDbContext();
-            var logger = new Mock<ILogger<SalesController>>();
-            var controller = new SalesController(ctx, logger.Object);
+            var mockService = new Mock<ISaleService>();
+            mockService.Setup(s => s.GetByIdAsync(1)).ReturnsAsync((SaleDto?)null);
 
-            var sale = new Sale
-            {
-                Number = "VENDA-001",
-                Date = DateTime.UtcNow,
-                Customer = "Lucas",
-                Branch = "SP",
-                Items = new List<SaleItem>
-                {
-                    new SaleItem { ProductId = 1, Quantity = 5, UnitPrice = 100m }
-                }
-            };
+            var controller = new SalesController(mockService.Object);
 
-            var result = await controller.Create(sale);
-            result.Should().BeOfType<CreatedAtActionResult>();
+            var result = await controller.GetById(1);
 
-            var saved = ctx.Sales.Include(s => s.Items).First();
-            saved.TotalAmount.Should().Be(450m); // com desconto de 10%
+            result.Should().BeOfType<NotFoundResult>();
         }
     }
 }

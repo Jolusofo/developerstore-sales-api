@@ -3,12 +3,22 @@ using Microsoft.IdentityModel.Tokens;
 using DeveloperStore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using DeveloperStore.Application.Services;
+using DeveloperStore.Application.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Conexão com PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Injeção de Dependências
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ISaleService, SaleService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 
 // Configuração JWT
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -43,7 +53,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseAuthentication(); // ?? Necessário para JWT
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

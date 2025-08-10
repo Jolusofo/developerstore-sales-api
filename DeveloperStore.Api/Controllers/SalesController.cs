@@ -1,7 +1,6 @@
-﻿using DeveloperStore.Domain.Entities;
-using DeveloperStore.Infrastructure.Data;
+﻿using DeveloperStore.Api.DTOs;
+using DeveloperStore.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace DeveloperStore.Api.Controllers
 {
@@ -9,102 +8,44 @@ namespace DeveloperStore.Api.Controllers
     [Route("api/[controller]")]
     public class SalesController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly ILogger<SalesController> _logger;
+        private readonly ISaleService _saleService;
 
-        public SalesController(AppDbContext context, ILogger<SalesController> logger)
+        public SalesController(ISaleService saleService)
         {
-            _context = context;
-            _logger = logger;
+            _saleService = saleService;
         }
 
-        // GET /sales
         [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var sales = await _context.Sales.Include(s => s.Items).ToListAsync();
-            return Ok(sales);
-        }
+        public async Task<IActionResult> GetAll() =>
+            Ok(await _saleService.GetAllAsync());
 
-        // GET /sales/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var sale = await _context.Sales.Include(s => s.Items).FirstOrDefaultAsync(s => s.Id == id);
-            if (sale == null) return NotFound();
-            return Ok(sale);
+            var sale = await _saleService.GetByIdAsync(id);
+            return sale == null ? NotFound() : Ok(sale);
         }
 
-        // POST /sales
         [HttpPost]
-        public async Task<IActionResult> Create(Sale sale)
+        public async Task<IActionResult> Create(CreateSaleDto dto)
         {
-            sale.CalculateTotals();
-
-            _context.Sales.Add(sale);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Evento: SaleCreated - Venda #{Number}", sale.Number);
-
+            var sale = await _saleService.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = sale.Id }, sale);
         }
 
-        // PUT /sales/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, Sale updatedSale)
+        public async Task<IActionResult> Update(int id, UpdateSaleDto dto)
         {
-            var sale = await _context.Sales.Include(s => s.Items).FirstOrDefaultAsync(s => s.Id == id);
-            if (sale == null) return NotFound();
-
-            // Atualiza propriedades
-            sale.Number = updatedSale.Number;
-            sale.Date = updatedSale.Date;
-            sale.Customer = updatedSale.Customer;
-            sale.Branch = updatedSale.Branch;
-            sale.Items = updatedSale.Items;
-
-            sale.CalculateTotals();
-
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Evento: SaleModified - Venda #{Number}", sale.Number);
-
-            return Ok(sale);
+            var sale = await _saleService.UpdateAsync(id, dto);
+            return sale == null ? NotFound() : Ok(sale);
         }
 
-        // DELETE /sales/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Cancel(int id)
-        {
-            var sale = await _context.Sales.FindAsync(id);
-            if (sale == null) return NotFound();
+        public async Task<IActionResult> Cancel(int id) =>
+            await _saleService.CancelAsync(id) ? Ok(new { message = "Venda cancelada com sucesso" }) : NotFound();
 
-            sale.IsCancelled = true;
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Evento: SaleCancelled - Venda #{Number}", sale.Number);
-
-            return Ok(new { message = "Venda cancelada com sucesso" });
-        }
-
-        // DELETE /sales/{saleId}/items/{itemId}
         [HttpDelete("{saleId}/items/{itemId}")]
-        public async Task<IActionResult> CancelItem(int saleId, int itemId)
-        {
-            var sale = await _context.Sales.Include(s => s.Items).FirstOrDefaultAsync(s => s.Id == saleId);
-            if (sale == null) return NotFound();
-
-            var item = sale.Items.FirstOrDefault(i => i.Id == itemId);
-            if (item == null) return NotFound();
-
-            sale.Items.Remove(item);
-            sale.CalculateTotals();
-
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Evento: ItemCancelled - Venda #{Number}, Item {ItemId}", sale.Number, itemId);
-
-            return Ok(new { message = "Item cancelado com sucesso" });
-        }
+        public async Task<IActionResult> CancelItem(int saleId, int itemId) =>
+            await _saleService.CancelItemAsync(saleId, itemId) ? Ok(new { message = "Item cancelado com sucesso" }) : NotFound();
     }
 }

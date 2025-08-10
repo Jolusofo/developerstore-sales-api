@@ -1,49 +1,39 @@
 using DeveloperStore.Api.Controllers;
-using DeveloperStore.Domain.Entities;
-using DeveloperStore.Infrastructure.Data;
-using FluentAssertions;
+using DeveloperStore.Api.DTOs;
+using DeveloperStore.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Moq;
 using Xunit;
+using FluentAssertions;
 
 namespace DeveloperStore.Tests.Controllers
 {
     public class UsersControllerTests
     {
-        private AppDbContext GetDbContext()
-        {
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options;
-            var ctx = new AppDbContext(options);
-            ctx.Users.Add(new User { Id = 1, Username = "admin", Password = "123" });
-            ctx.SaveChanges();
-            return ctx;
-        }
-
         [Fact]
-        public async Task GetById_ShouldReturnUser_WhenExists()
+        public async Task GetById_ShouldReturnOk_WhenUserExists()
         {
-            var ctx = GetDbContext();
-            var controller = new UsersController(ctx);
+            var mockService = new Mock<IUserService>();
+            mockService.Setup(s => s.GetByIdAsync(1)).ReturnsAsync(new UserDto { Id = 1, Username = "Test" });
+
+            var controller = new UsersController(mockService.Object);
 
             var result = await controller.GetById(1);
-            var ok = result as OkObjectResult;
 
-            ok.Should().NotBeNull();
+            result.Should().BeOfType<OkObjectResult>();
         }
 
         [Fact]
-        public async Task Create_ShouldAddUser()
+        public async Task GetById_ShouldReturnNotFound_WhenUserDoesNotExist()
         {
-            var ctx = GetDbContext();
-            var controller = new UsersController(ctx);
+            var mockService = new Mock<IUserService>();
+            mockService.Setup(s => s.GetByIdAsync(1)).ReturnsAsync((UserDto?)null);
 
-            var user = new User { Username = "new", Password = "pass" };
-            var result = await controller.Create(user);
+            var controller = new UsersController(mockService.Object);
 
-            result.Should().BeOfType<CreatedAtActionResult>();
-            ctx.Users.Count().Should().Be(2);
+            var result = await controller.GetById(1);
+
+            result.Should().BeOfType<NotFoundResult>();
         }
     }
 }
